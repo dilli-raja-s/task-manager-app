@@ -10,6 +10,10 @@ Task Manager is a full-stack to-do application for creating and managing tasks w
 - Filter tasks by status
 - View summary counts for all, pending, in-progress, and completed tasks
 - Persist task data in SQLite
+- Register, login, logout, and session introspection endpoints
+- HttpOnly cookie session auth with CSRF protection on mutating routes
+- Owner-scoped task access so users can only manage their own tasks
+- Login brute-force baseline protection with deterministic 429 responses
 
 ## Tech Stack
 
@@ -57,6 +61,14 @@ npm run dev
 npm run build
 ```
 
+### Run tests
+
+```bash
+npm run test:unit
+npm run test:api
+npm run test:security
+```
+
 ### Run the deployed app locally
 
 ```bash
@@ -72,10 +84,15 @@ http://localhost:4000
 ## API Endpoints
 
 - `GET /api/health` - health check
-- `GET /api/tasks` - list tasks
-- `POST /api/tasks` - create a task
-- `PUT /api/tasks/:id` - update a task
-- `DELETE /api/tasks/:id` - delete a task
+- `GET /api/auth/csrf-token` - issue CSRF token cookie and body token
+- `POST /api/auth/register` - register user account
+- `POST /api/auth/login` - login and issue session cookie
+- `GET /api/auth/session` - fetch current session state
+- `POST /api/auth/logout` - revoke current session
+- `GET /api/tasks` - list tasks for authenticated owner
+- `POST /api/tasks` - create a task for authenticated owner
+- `PUT /api/tasks/:id` - update an owned task
+- `DELETE /api/tasks/:id` - delete an owned task
 
 ## Task Model
 
@@ -90,3 +107,4 @@ Each task includes:
 
 - SQLite database file is stored under `data/tasks.db`
 - `node_modules`, `dist`, and local database files are excluded from git
+- Legacy ownership reassignment runbook: `docs/legacy-task-reassignment-playbook.md`

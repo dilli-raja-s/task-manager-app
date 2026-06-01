@@ -8,19 +8,33 @@
     "dev:server": "nodemon server/index.js",
     "dev:client": "vite",
     "build": "vite build",
-    "start": "node server/index.js"
+    "start": "node server/index.js",
+    "test:unit": "vitest run tests/unit",
+    "test:api": "vitest run tests/api",
+    "test:security": "vitest run tests/security",
+    "test:e2e": "playwright test",
+    "test:contract": "vitest run tests/contracts",
+    "verify:performance": "node scripts/performance-benchmark.mjs",
+    "verify:docs": "node scripts/check-docs-coverage.mjs"
   },
   "dependencies": {
+    "bcrypt": "^5.1.1",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "express": "^5.1.0",
+    "express-rate-limit": "^7.4.1",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "sqlite3": "^5.1.7"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.10.2",
+    "@playwright/test": "^1.54.0",
     "@vitejs/plugin-react": "^4.5.0",
     "concurrently": "^9.1.2",
     "nodemon": "^3.1.10",
-    "vite": "^6.3.5"
+    "supertest": "^7.1.1",
+    "vite": "^6.3.5",
+    "vitest": "^2.1.8"
   }
 }

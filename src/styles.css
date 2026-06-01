@@ -138,6 +138,12 @@ h3 {
   font-size: 1.05rem;
 }
 
+.auth-hint {
+  margin: 0.8rem 0 0;
+  color: rgba(20, 34, 41, 0.72);
+  font-weight: 600;
+}
+
 .summary-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -194,6 +200,22 @@ h3 {
   background: var(--paper);
   backdrop-filter: blur(14px);
   animation: rise 650ms ease-out;
+}
+
+.auth-panel,
+.toolbar-panel {
+  margin-top: 1.5rem;
+}
+
+.toolbar-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.toolbar-panel .message {
+  margin: 0;
 }
 
 .panel-heading,

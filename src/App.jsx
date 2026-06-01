@@ -1,10 +1,16 @@
-import { useEffect, useMemo, useState } from 'react';
+﻿import { useEffect, useMemo, useState } from 'react';
+import { ApiError, getSession, login, logout, register, request } from './api/client';
 
-const emptyForm = {
+const emptyTaskForm = {
   title: '',
   description: '',
   status: 'pending',
   dueDate: '',
+};
+
+const emptyAuthForm = {
+  email: '',
+  password: '',
 };
 
 const statusLabels = {
@@ -23,15 +29,22 @@ function formatDueDate(value) {
 
 export default function App() {
   const [tasks, setTasks] = useState([]);
-  const [form, setForm] = useState(emptyForm);
+  const [taskForm, setTaskForm] = useState(emptyTaskForm);
+  const [authForm, setAuthForm] = useState(emptyAuthForm);
   const [activeFilter, setActiveFilter] = useState('all');
   const [editingTaskId, setEditingTaskId] = useState(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const [errorMessage, setErrorMessage] = useState('');
+  const [isSubmittingTask, setIsSubmittingTask] = useState(false);
+  const [isLoadingTasks, setIsLoadingTasks] = useState(false);
+  const [taskError, setTaskError] = useState('');
+
+  const [authState, setAuthState] = useState('checking');
+  const [authMode, setAuthMode] = useState('login');
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
+  const [authError, setAuthError] = useState('');
+  const [currentUser, setCurrentUser] = useState(null);
 
   useEffect(() => {
-    loadTasks();
+    bootstrapSession();
   }, []);
 
   const filteredTasks = useMemo(() => {
@@ -50,73 +63,134 @@ export default function App() {
     };
   }, [tasks]);
 
-  async function loadTasks() {
-    setIsLoading(true);
-    setErrorMessage('');
+  async function bootstrapSession() {
+    setAuthState('checking');
+    setAuthError('');
 
     try {
-      const response = await fetch('/api/tasks');
-      if (!response.ok) {
-        throw new Error('Failed to fetch tasks.');
+      const session = await getSession();
+
+      if (session.authenticated) {
+        setCurrentUser(session.user);
+        setAuthState('authenticated');
+        await loadTasks();
+        return;
       }
 
-      const data = await response.json();
-      setTasks(data);
+      setCurrentUser(null);
+      setAuthState('unauthenticated');
     } catch (error) {
-      setErrorMessage(error.message);
-    } finally {
-      setIsLoading(false);
+      setCurrentUser(null);
+      setAuthState('unauthenticated');
+      setAuthError('Unable to verify session. Please sign in.');
     }
   }
 
-  function resetForm() {
-    setForm(emptyForm);
+  async function loadTasks() {
+    setIsLoadingTasks(true);
+    setTaskError('');
+
+    try {
+      const data = await request('/api/tasks');
+      setTasks(data);
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 401) {
+        setCurrentUser(null);
+        setAuthState('unauthenticated');
+        setTaskError('Your session has expired. Please sign in again.');
+        return;
+      }
+
+      setTaskError(error.message);
+    } finally {
+      setIsLoadingTasks(false);
+    }
+  }
+
+  function resetTaskForm() {
+    setTaskForm(emptyTaskForm);
     setEditingTaskId(null);
   }
 
-  function handleChange(event) {
+  function handleTaskChange(event) {
     const { name, value } = event.target;
-    setForm((currentForm) => ({
+    setTaskForm((currentForm) => ({
       ...currentForm,
       [name]: value,
     }));
   }
 
-  async function handleSubmit(event) {
+  function handleAuthChange(event) {
+    const { name, value } = event.target;
+    setAuthForm((currentForm) => ({
+      ...currentForm,
+      [name]: value,
+    }));
+  }
+
+  async function handleAuthSubmit(event) {
     event.preventDefault();
-    setIsSubmitting(true);
-    setErrorMessage('');
+    setIsAuthenticating(true);
+    setAuthError('');
+
+    try {
+      if (authMode === 'register') {
+        await register(authForm);
+      }
+
+      const user = await login(authForm);
+      setCurrentUser(user);
+      setAuthState('authenticated');
+      setAuthForm(emptyAuthForm);
+      await loadTasks();
+    } catch (error) {
+      setAuthError(error.message);
+    } finally {
+      setIsAuthenticating(false);
+    }
+  }
+
+  async function handleLogout() {
+    setAuthError('');
+    setTaskError('');
+
+    try {
+      await logout();
+      setCurrentUser(null);
+      setTasks([]);
+      setAuthState('unauthenticated');
+      setAuthMode('login');
+      resetTaskForm();
+    } catch (error) {
+      setAuthError(error.message);
+    }
+  }
+
+  async function handleTaskSubmit(event) {
+    event.preventDefault();
+    setIsSubmittingTask(true);
+    setTaskError('');
 
     const method = editingTaskId ? 'PUT' : 'POST';
     const endpoint = editingTaskId ? `/api/tasks/${editingTaskId}` : '/api/tasks';
 
     try {
-      const response = await fetch(endpoint, {
+      await request(endpoint, {
         method,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(form),
+        body: taskForm,
       });
-
-      const data = await response.json().catch(() => null);
-
-      if (!response.ok) {
-        throw new Error(data?.error ?? 'Unable to save task.');
-      }
-
       await loadTasks();
-      resetForm();
+      resetTaskForm();
     } catch (error) {
-      setErrorMessage(error.message);
+      setTaskError(error.message);
     } finally {
-      setIsSubmitting(false);
+      setIsSubmittingTask(false);
     }
   }
 
   function startEditing(task) {
     setEditingTaskId(task.id);
-    setForm({
+    setTaskForm({
       title: task.title,
       description: task.description,
       status: task.status,
@@ -126,25 +200,20 @@ export default function App() {
   }
 
   async function handleDelete(taskId) {
-    setErrorMessage('');
+    setTaskError('');
 
     try {
-      const response = await fetch(`/api/tasks/${taskId}`, {
+      await request(`/api/tasks/${taskId}`, {
         method: 'DELETE',
       });
 
-      if (!response.ok) {
-        const data = await response.json().catch(() => null);
-        throw new Error(data?.error ?? 'Unable to delete task.');
-      }
-
       if (editingTaskId === taskId) {
-        resetForm();
+        resetTaskForm();
       }
 
       await loadTasks();
     } catch (error) {
-      setErrorMessage(error.message);
+      setTaskError(error.message);
     }
   }
 
@@ -157,8 +226,9 @@ export default function App() {
           <div>
             <h1>Task Manager</h1>
             <p className="hero-copy">
-              Organize work with clear task titles, detailed descriptions, status tracking, and visible deadlines.
+              Keep your work private with secure sign-in, per-user task ownership, and session-aware access.
             </p>
+            {currentUser ? <p className="auth-hint">Signed in as {currentUser.email}</p> : null}
           </div>
           <div className="summary-grid">
             <SummaryCard label="All Tasks" value={summary.total} tone="sun" />
@@ -168,123 +238,200 @@ export default function App() {
           </div>
         </section>
 
-        <section className="content-grid">
-          <article className="panel form-panel">
+        {authState === 'checking' ? <p className="message">Checking your session...</p> : null}
+
+        {authState !== 'authenticated' && authState !== 'checking' ? (
+          <section className="panel auth-panel">
             <div className="panel-heading">
               <div>
-                <p className="section-kicker">Task Editor</p>
-                <h2>{editingTaskId ? 'Update task' : 'Create a task'}</h2>
+                <p className="section-kicker">Authentication</p>
+                <h2>{authMode === 'login' ? 'Sign in' : 'Create account'}</h2>
               </div>
-              {editingTaskId ? (
-                <button className="ghost-button" type="button" onClick={resetForm}>
-                  Clear form
-                </button>
-              ) : null}
+              <button
+                className="ghost-button"
+                type="button"
+                onClick={() => {
+                  setAuthMode((currentMode) => (currentMode === 'login' ? 'register' : 'login'));
+                  setAuthError('');
+                }}
+              >
+                {authMode === 'login' ? 'Need an account?' : 'Already registered?'}
+              </button>
             </div>
 
-            <form className="task-form" onSubmit={handleSubmit}>
+            <form className="task-form" onSubmit={handleAuthSubmit}>
               <label>
-                <span>Title</span>
+                <span>Email</span>
                 <input
-                  name="title"
-                  placeholder="Prepare sprint review"
-                  value={form.title}
-                  onChange={handleChange}
+                  type="email"
+                  name="email"
+                  value={authForm.email}
+                  onChange={handleAuthChange}
+                  autoComplete="email"
                   required
                 />
               </label>
 
               <label>
-                <span>Description</span>
-                <textarea
-                  name="description"
-                  rows="5"
-                  placeholder="Add the agenda, gather metrics, and confirm demo owners."
-                  value={form.description}
-                  onChange={handleChange}
+                <span>Password</span>
+                <input
+                  type="password"
+                  name="password"
+                  value={authForm.password}
+                  onChange={handleAuthChange}
+                  autoComplete={authMode === 'login' ? 'current-password' : 'new-password'}
                   required
                 />
               </label>
 
-              <div className="form-row">
-                <label>
-                  <span>Status</span>
-                  <select name="status" value={form.status} onChange={handleChange}>
-                    <option value="pending">Pending</option>
-                    <option value="in-progress">In Progress</option>
-                    <option value="completed">Completed</option>
-                  </select>
-                </label>
-
-                <label>
-                  <span>Due Date</span>
-                  <input name="dueDate" type="date" value={form.dueDate} onChange={handleChange} required />
-                </label>
-              </div>
-
-              <button className="primary-button" type="submit" disabled={isSubmitting}>
-                {isSubmitting ? 'Saving...' : editingTaskId ? 'Save changes' : 'Add task'}
+              <button className="primary-button" type="submit" disabled={isAuthenticating}>
+                {isAuthenticating
+                  ? 'Submitting...'
+                  : authMode === 'login'
+                    ? 'Sign in'
+                    : 'Register and sign in'}
               </button>
             </form>
 
-            {errorMessage ? <p className="message error-message">{errorMessage}</p> : null}
-          </article>
+            {authError ? <p className="message error-message">{authError}</p> : null}
+          </section>
+        ) : null}
 
-          <article className="panel list-panel">
-            <div className="panel-heading panel-heading-stack">
-              <div>
-                <p className="section-kicker">Task Board</p>
-                <h2>Current tasks</h2>
-              </div>
-              <div className="filter-group" role="tablist" aria-label="Task filters">
-                {['all', 'pending', 'in-progress', 'completed'].map((filter) => (
-                  <button
-                    key={filter}
-                    className={filter === activeFilter ? 'filter-chip active' : 'filter-chip'}
-                    type="button"
-                    onClick={() => setActiveFilter(filter)}
-                  >
-                    {filter === 'all' ? 'All' : statusLabels[filter]}
+        {authState === 'authenticated' ? (
+          <>
+            <div className="panel toolbar-panel">
+              <p className="message">Your task data is private to this account.</p>
+              <button className="ghost-button" type="button" onClick={handleLogout}>
+                Logout
+              </button>
+            </div>
+
+            <section className="content-grid">
+              <article className="panel form-panel">
+                <div className="panel-heading">
+                  <div>
+                    <p className="section-kicker">Task Editor</p>
+                    <h2>{editingTaskId ? 'Update task' : 'Create a task'}</h2>
+                  </div>
+                  {editingTaskId ? (
+                    <button className="ghost-button" type="button" onClick={resetTaskForm}>
+                      Clear form
+                    </button>
+                  ) : null}
+                </div>
+
+                <form className="task-form" onSubmit={handleTaskSubmit}>
+                  <label>
+                    <span>Title</span>
+                    <input
+                      name="title"
+                      placeholder="Prepare sprint review"
+                      value={taskForm.title}
+                      onChange={handleTaskChange}
+                      required
+                    />
+                  </label>
+
+                  <label>
+                    <span>Description</span>
+                    <textarea
+                      name="description"
+                      rows="5"
+                      placeholder="Add the agenda, gather metrics, and confirm demo owners."
+                      value={taskForm.description}
+                      onChange={handleTaskChange}
+                      required
+                    />
+                  </label>
+
+                  <div className="form-row">
+                    <label>
+                      <span>Status</span>
+                      <select name="status" value={taskForm.status} onChange={handleTaskChange}>
+                        <option value="pending">Pending</option>
+                        <option value="in-progress">In Progress</option>
+                        <option value="completed">Completed</option>
+                      </select>
+                    </label>
+
+                    <label>
+                      <span>Due Date</span>
+                      <input
+                        name="dueDate"
+                        type="date"
+                        value={taskForm.dueDate}
+                        onChange={handleTaskChange}
+                        required
+                      />
+                    </label>
+                  </div>
+
+                  <button className="primary-button" type="submit" disabled={isSubmittingTask}>
+                    {isSubmittingTask ? 'Saving...' : editingTaskId ? 'Save changes' : 'Add task'}
                   </button>
-                ))}
-              </div>
-            </div>
+                </form>
 
-            {isLoading ? <p className="message">Loading tasks...</p> : null}
+                {taskError ? <p className="message error-message">{taskError}</p> : null}
+              </article>
 
-            {!isLoading && filteredTasks.length === 0 ? (
-              <div className="empty-state">
-                <h3>No tasks in this view</h3>
-                <p>Create a task or switch filters to see more work items.</p>
-              </div>
-            ) : null}
-
-            <div className="task-list">
-              {filteredTasks.map((task) => (
-                <article className="task-card" key={task.id}>
-                  <div className="task-card-top">
-                    <span className={`status-pill ${task.status}`}>{statusLabels[task.status]}</span>
-                    <span className="due-date">Due {formatDueDate(task.dueDate)}</span>
+              <article className="panel list-panel">
+                <div className="panel-heading panel-heading-stack">
+                  <div>
+                    <p className="section-kicker">Task Board</p>
+                    <h2>Current tasks</h2>
                   </div>
-
-                  <div className="task-card-body">
-                    <h3>{task.title}</h3>
-                    <p>{task.description}</p>
+                  <div className="filter-group" role="group" aria-label="Task filters">
+                    {['all', 'pending', 'in-progress', 'completed'].map((filter) => (
+                      <button
+                        key={filter}
+                        className={filter === activeFilter ? 'filter-chip active' : 'filter-chip'}
+                        type="button"
+                        aria-pressed={filter === activeFilter}
+                        onClick={() => setActiveFilter(filter)}
+                      >
+                        {filter === 'all' ? 'All' : statusLabels[filter]}
+                      </button>
+                    ))}
                   </div>
+                </div>
 
-                  <div className="task-actions">
-                    <button className="ghost-button" type="button" onClick={() => startEditing(task)}>
-                      Edit
-                    </button>
-                    <button className="danger-button" type="button" onClick={() => handleDelete(task.id)}>
-                      Delete
-                    </button>
+                {isLoadingTasks ? <p className="message">Loading tasks...</p> : null}
+
+                {!isLoadingTasks && filteredTasks.length === 0 ? (
+                  <div className="empty-state">
+                    <h3>No tasks in this view</h3>
+                    <p>Create a task or switch filters to see more work items.</p>
                   </div>
-                </article>
-              ))}
-            </div>
-          </article>
-        </section>
+                ) : null}
+
+                <div className="task-list">
+                  {filteredTasks.map((task) => (
+                    <article className="task-card" key={task.id}>
+                      <div className="task-card-top">
+                        <span className={`status-pill ${task.status}`}>{statusLabels[task.status]}</span>
+                        <span className="due-date">Due {formatDueDate(task.dueDate)}</span>
+                      </div>
+
+                      <div className="task-card-body">
+                        <h3>{task.title}</h3>
+                        <p>{task.description}</p>
+                      </div>
+
+                      <div className="task-actions">
+                        <button className="ghost-button" type="button" onClick={() => startEditing(task)}>
+                          Edit
+                        </button>
+                        <button className="danger-button" type="button" onClick={() => handleDelete(task.id)}>
+                          Delete
+                        </button>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              </article>
+            </section>
+          </>
+        ) : null}
       </main>
     </div>
   );

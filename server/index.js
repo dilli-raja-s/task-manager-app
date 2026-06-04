@@ -3,7 +3,7 @@ import express from 'express';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { createTask, deleteTask, getTasks, initializeDatabase, updateTask } from './database.js';
+import { createTask, deleteTask, getTasks, initializeDatabase, seedDatabase, updateTask } from './database.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -119,6 +119,7 @@ if (fs.existsSync(distDirectory)) {
 }
 
 initializeDatabase()
+  .then(() => seedDatabase())
   .then(() => {
     app.listen(port, () => {
       console.log(`Task Manager server listening on http://localhost:${port}`);

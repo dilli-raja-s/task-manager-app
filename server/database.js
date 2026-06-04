@@ -122,3 +122,72 @@ function getTaskById(id) {
     );
   });
 }
+
+export function seedDatabase() {
+  return new Promise((resolve, reject) => {
+    const seedTasks = [
+      {
+        title: 'Buy groceries',
+        description: 'Milk, eggs, bread, and vegetables',
+        status: 'pending',
+        dueDate: '2026-06-10',
+      },
+      {
+        title: 'Review code',
+        description: 'Check code quality for feature branch',
+        status: 'in-progress',
+        dueDate: '2026-06-08',
+      },
+      {
+        title: 'Fix login bug',
+        description: 'Users cannot reset password',
+        status: 'pending',
+        dueDate: '2026-06-07',
+      },
+      {
+        title: 'Deploy to production',
+        description: 'Release v2.1 with new features',
+        status: 'completed',
+        dueDate: '2026-06-05',
+      },
+      {
+        title: 'Write documentation',
+        description: 'API documentation for the new search feature',
+        status: 'pending',
+        dueDate: '2026-06-15',
+      },
+    ];
+
+    // Check if database already has tasks
+    db.get('SELECT COUNT(*) as count FROM tasks', (error, row) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+
+      if (row.count === 0) {
+        // Insert seed tasks
+        let inserted = 0;
+        seedTasks.forEach((task) => {
+          db.run(
+            `INSERT INTO tasks (title, description, status, dueDate, updatedAt)
+             VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)`,
+            [task.title, task.description, task.status, task.dueDate],
+            (error) => {
+              if (error) {
+                reject(error);
+                return;
+              }
+              inserted++;
+              if (inserted === seedTasks.length) {
+                resolve();
+              }
+            }
+          );
+        });
+      } else {
+        resolve();
+      }
+    });
+  });
+}

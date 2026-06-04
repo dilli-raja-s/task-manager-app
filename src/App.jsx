@@ -29,17 +29,29 @@ export default function App() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     loadTasks();
   }, []);
 
   const filteredTasks = useMemo(() => {
-    if (activeFilter === 'all') {
-      return tasks;
+    let results = tasks;
+
+    if (activeFilter !== 'all') {
+      results = results.filter((task) => task.status === activeFilter);
     }
-    return tasks.filter((task) => task.status === activeFilter);
-  }, [activeFilter, tasks]);
+
+    if (searchTerm.trim()) {
+      const lowerSearch = searchTerm.trim().toLowerCase();
+      results = results.filter((task) =>
+        task.title.toLowerCase().includes(lowerSearch) ||
+        task.description.toLowerCase().includes(lowerSearch)
+      );
+    }
+
+    return results;
+  }, [activeFilter, searchTerm, tasks]);
 
   const summary = useMemo(() => {
     return {
@@ -123,6 +135,14 @@ export default function App() {
       dueDate: task.dueDate.slice(0, 10),
     });
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function handleSearchChange(event) {
+    setSearchTerm(event.target.value);
+  }
+
+  function handleSearchClear() {
+    setSearchTerm('');
   }
 
   async function handleDelete(taskId) {
@@ -235,6 +255,26 @@ export default function App() {
               <div>
                 <p className="section-kicker">Task Board</p>
                 <h2>Current tasks</h2>
+              </div>
+              <div className="search-container">
+                <input
+                  type="text"
+                  placeholder="Search tasks by title or description"
+                  value={searchTerm}
+                  onChange={handleSearchChange}
+                  className="search-input"
+                  aria-label="Search tasks"
+                />
+                {searchTerm && (
+                  <button
+                    type="button"
+                    className="search-clear-button"
+                    onClick={handleSearchClear}
+                    aria-label="Clear search"
+                  >
+                    ✕
+                  </button>
+                )}
               </div>
               <div className="filter-group" role="tablist" aria-label="Task filters">
                 {['all', 'pending', 'in-progress', 'completed'].map((filter) => (

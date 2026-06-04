@@ -43,7 +43,7 @@ export default function App() {
     }
 
     if (searchTerm.trim()) {
-      const lowerSearch = searchTerm.toLowerCase();
+      const lowerSearch = searchTerm.trim().toLowerCase();
       results = results.filter((task) =>
         task.title.toLowerCase().includes(lowerSearch) ||
         task.description.toLowerCase().includes(lowerSearch)

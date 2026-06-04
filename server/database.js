@@ -25,7 +25,26 @@ export function initializeDatabase() {
           reject(error);
           return;
         }
-        resolve();
+        // Create indexes for search optimization
+        db.run(
+          `CREATE INDEX IF NOT EXISTS idx_title_description ON tasks(title, description)`,
+          (indexError1) => {
+            if (indexError1) {
+              reject(indexError1);
+              return;
+            }
+            db.run(
+              `CREATE INDEX IF NOT EXISTS idx_status_dueDate ON tasks(status, dueDate)`,
+              (indexError2) => {
+                if (indexError2) {
+                  reject(indexError2);
+                  return;
+                }
+                resolve();
+              }
+            );
+          }
+        );
       }
     );
   });

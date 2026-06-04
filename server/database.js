@@ -1,6 +1,7 @@
 import sqlite3 from 'sqlite3';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { buildSearchQuery, buildCountQuery } from './searchQueryBuilder.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -139,5 +140,42 @@ function getTaskById(id) {
         resolve(row ?? null);
       }
     );
+  });
+}
+
+export function searchTasks(filters = {}) {
+  return new Promise((resolve, reject) => {
+    const { sql: countSql, params: countParams } = buildCountQuery(filters);
+    const { sql: searchSql, params: searchParams } = buildSearchQuery(filters);
+
+    // Execute count query first
+    db.get(countSql, countParams, (countError, countResult) => {
+      if (countError) {
+        reject(countError);
+        return;
+      }
+
+      const total = countResult?.count ?? 0;
+      const { page, limit } = buildSearchQuery(filters);
+      const pages = Math.ceil(total / limit);
+
+      // Execute search query
+      db.all(searchSql, searchParams, (searchError, rows) => {
+        if (searchError) {
+          reject(searchError);
+          return;
+        }
+
+        resolve({
+          data: rows || [],
+          pagination: {
+            page,
+            limit,
+            total,
+            pages,
+          },
+        });
+      });
+    });
   });
 }

@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
+import SearchBar from './components/SearchBar.jsx';
+import SearchResults from './components/SearchResults.jsx';
 
 const emptyForm = {
   title: '',
@@ -30,9 +32,33 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
 
+  // Search/filter state
+  const [searchFilters, setSearchFilters] = useState({
+    query: '',
+    status: 'all',
+    dateFrom: null,
+    dateTo: null,
+    sortBy: 'dueDate',
+    order: 'asc',
+    page: 1,
+    limit: 20,
+  });
+  const [searchResults, setSearchResults] = useState({
+    tasks: [],
+    loading: false,
+    error: null,
+    pagination: { page: 1, limit: 20, total: 0, pages: 0 },
+  });
+
+  // Load all tasks on mount
   useEffect(() => {
     loadTasks();
   }, []);
+
+  // Fetch search results when filters change
+  useEffect(() => {
+    fetchSearchResults();
+  }, [searchFilters]);
 
   const filteredTasks = useMemo(() => {
     if (activeFilter === 'all') {
@@ -66,6 +92,46 @@ export default function App() {
       setErrorMessage(error.message);
     } finally {
       setIsLoading(false);
+    }
+  }
+
+  async function fetchSearchResults() {
+    setSearchResults((prev) => ({
+      ...prev,
+      loading: true,
+      error: null,
+    }));
+
+    try {
+      const params = new URLSearchParams();
+      if (searchFilters.query) params.append('query', searchFilters.query);
+      if (searchFilters.status !== 'all') params.append('status', searchFilters.status);
+      if (searchFilters.dateFrom) params.append('dateFrom', searchFilters.dateFrom);
+      if (searchFilters.dateTo) params.append('dateTo', searchFilters.dateTo);
+      params.append('sortBy', searchFilters.sortBy);
+      params.append('order', searchFilters.order);
+      params.append('page', searchFilters.page);
+      params.append('limit', searchFilters.limit);
+
+      const response = await fetch(`/api/tasks/search?${params.toString()}`);
+      if (!response.ok) {
+        throw new Error('Failed to search tasks.');
+      }
+
+      const data = await response.json();
+      setSearchResults({
+        tasks: data.data || [],
+        loading: false,
+        error: null,
+        pagination: data.pagination || { page: 1, limit: 20, total: 0, pages: 0 },
+      });
+    } catch (error) {
+      setSearchResults((prev) => ({
+        ...prev,
+        loading: false,
+        error: error.message,
+        tasks: [],
+      }));
     }
   }
 
@@ -146,6 +212,35 @@ export default function App() {
     } catch (error) {
       setErrorMessage(error.message);
     }
+  }
+
+  function handleSearchChange(query) {
+    setSearchFilters((prev) => ({
+      ...prev,
+      query,
+      page: 1, // Reset to page 1 when search changes
+    }));
+  }
+
+  function handleSearchClear() {
+    setSearchFilters({
+      query: '',
+      status: 'all',
+      dateFrom: null,
+      dateTo: null,
+      sortBy: 'dueDate',
+      order: 'asc',
+      page: 1,
+      limit: 20,
+    });
+  }
+
+  function handlePageChange(newPage) {
+    setSearchFilters((prev) => ({
+      ...prev,
+      page: newPage,
+    }));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
   return (
@@ -233,8 +328,34 @@ export default function App() {
           <article className="panel list-panel">
             <div className="panel-heading panel-heading-stack">
               <div>
+                <p className="section-kicker">Task Search & Filtering</p>
+                <h2>Find tasks</h2>
+              </div>
+            </div>
+
+            {/* Search Bar */}
+            <SearchBar
+              value={searchFilters.query}
+              onChange={handleSearchChange}
+              onClear={handleSearchClear}
+              placeholder="Search tasks by title or description..."
+            />
+
+            {/* Search Results */}
+            <SearchResults
+              tasks={searchResults.tasks}
+              loading={searchResults.loading}
+              error={searchResults.error}
+              pagination={searchResults.pagination}
+              onPageChange={handlePageChange}
+              onRetry={fetchSearchResults}
+            />
+
+            {/* Task List (Legacy View) */}
+            <div className="panel-heading panel-heading-stack" style={{ marginTop: '2rem' }}>
+              <div>
                 <p className="section-kicker">Task Board</p>
-                <h2>Current tasks</h2>
+                <h2>All tasks</h2>
               </div>
               <div className="filter-group" role="tablist" aria-label="Task filters">
                 {['all', 'pending', 'in-progress', 'completed'].map((filter) => (

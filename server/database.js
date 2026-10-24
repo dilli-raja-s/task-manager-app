@@ -1,12 +1,27 @@
 import sqlite3 from 'sqlite3';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { buildSearchQuery, buildCountQuery } from './searchQueryBuilder.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const databasePath = path.join(__dirname, '..', 'data', 'tasks.db');
+const databasePath = process.env.NODE_ENV === 'test'
+  ? ':memory:'
+  : path.join(__dirname, '..', 'data', 'tasks.db');
 
 const db = new sqlite3.Database(databasePath);
+
+export function closeDatabase() {
+  return new Promise((resolve, reject) => {
+    db.close((error) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+      resolve();
+    });
+  });
+}
 
 export function initializeDatabase() {
   return new Promise((resolve, reject) => {
@@ -25,7 +40,26 @@ export function initializeDatabase() {
           reject(error);
           return;
         }
-        resolve();
+        // Create indexes for search optimization
+        db.run(
+          `CREATE INDEX IF NOT EXISTS idx_title_description ON tasks(title, description)`,
+          (indexError1) => {
+            if (indexError1) {
+              reject(indexError1);
+              return;
+            }
+            db.run(
+              `CREATE INDEX IF NOT EXISTS idx_status_dueDate ON tasks(status, dueDate)`,
+              (indexError2) => {
+                if (indexError2) {
+                  reject(indexError2);
+                  return;
+                }
+                resolve();
+              }
+            );
+          }
+        );
       }
     );
   });
@@ -120,5 +154,42 @@ function getTaskById(id) {
         resolve(row ?? null);
       }
     );
+  });
+}
+
+export function searchTasks(filters = {}) {
+  return new Promise((resolve, reject) => {
+    const { sql: countSql, params: countParams } = buildCountQuery(filters);
+    const { sql: searchSql, params: searchParams } = buildSearchQuery(filters);
+
+    // Execute count query first
+    db.get(countSql, countParams, (countError, countResult) => {
+      if (countError) {
+        reject(countError);
+        return;
+      }
+
+      const total = countResult?.count ?? 0;
+      const { page, limit } = buildSearchQuery(filters);
+      const pages = Math.ceil(total / limit);
+
+      // Execute search query
+      db.all(searchSql, searchParams, (searchError, rows) => {
+        if (searchError) {
+          reject(searchError);
+          return;
+        }
+
+        resolve({
+          data: rows || [],
+          pagination: {
+            page,
+            limit,
+            total,
+            pages,
+          },
+        });
+      });
+    });
   });
 }

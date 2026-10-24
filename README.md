@@ -47,6 +47,7 @@ npm install
 ```bash
 npm run dev
 ```
+The development command starts both the React frontend and the Express API.
 
 - React dev server: http://localhost:5173
 - Express API: http://localhost:4000

@@ -1,4 +1,5 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { jest } from '@jest/globals';
+import { act, render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { SearchBar } from '../SearchBar.jsx';
 import { SearchResults } from '../SearchResults.jsx';
@@ -18,16 +19,16 @@ describe('SearchBar Integration Tests', () => {
 
     // Simulate rapid typing: t, te, tes, test (4 keystrokes)
     fireEvent.change(input, { target: { value: 't' } });
-    jest.advanceTimersByTime(100);
+    act(() => jest.advanceTimersByTime(100));
 
     fireEvent.change(input, { target: { value: 'te' } });
-    jest.advanceTimersByTime(100);
+    act(() => jest.advanceTimersByTime(100));
 
     fireEvent.change(input, { target: { value: 'tes' } });
-    jest.advanceTimersByTime(100);
+    act(() => jest.advanceTimersByTime(100));
 
     fireEvent.change(input, { target: { value: 'test' } });
-    jest.advanceTimersByTime(500); // Wait for debounce
+    act(() => jest.advanceTimersByTime(500));
 
     // Should only have 1 API call after debounce, not 4
     expect(handleSearch).toHaveBeenCalledTimes(1);
@@ -62,7 +63,7 @@ describe('SearchBar Integration Tests', () => {
     const input = screen.getByPlaceholderText('Search tasks...');
     fireEvent.change(input, { target: { value: 'test' } });
 
-    jest.advanceTimersByTime(500); // Debounce
+    act(() => jest.advanceTimersByTime(500));
 
     expect(handleSearch).toHaveBeenCalledWith('test');
 
@@ -228,7 +229,7 @@ describe('SearchBar + SearchResults Integration', () => {
     expect(mockSearchHandler).not.toHaveBeenCalled();
 
     // Wait for debounce
-    jest.advanceTimersByTime(500);
+    act(() => jest.advanceTimersByTime(500));
 
     expect(mockSearchHandler).toHaveBeenCalledWith('bug fix');
 

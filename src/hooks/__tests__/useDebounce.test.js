@@ -1,4 +1,5 @@
-import { renderHook, waitFor } from '@testing-library/react';
+import { jest } from '@jest/globals';
+import { act, renderHook } from '@testing-library/react';
 import { useDebounce } from '../useDebounce.js';
 
 describe('useDebounce', () => {
@@ -8,7 +9,7 @@ describe('useDebounce', () => {
   });
 
   afterEach(() => {
-    jest.runOnlyPendingTimers();
+    act(() => jest.runOnlyPendingTimers());
     jest.useRealTimers();
   });
 
@@ -30,7 +31,7 @@ describe('useDebounce', () => {
     expect(result.current).toBe('test'); // Should still be old value
 
     // Wait for debounce timeout
-    jest.advanceTimersByTime(500);
+    act(() => jest.advanceTimersByTime(500));
     expect(result.current).toBe('test2');
   });
 
@@ -41,14 +42,14 @@ describe('useDebounce', () => {
     );
 
     rerender({ value: 'ab' });
-    jest.advanceTimersByTime(200);
+    act(() => jest.advanceTimersByTime(200));
     expect(result.current).toBe('a');
 
     rerender({ value: 'abc' });
-    jest.advanceTimersByTime(200);
+    act(() => jest.advanceTimersByTime(200));
     expect(result.current).toBe('a'); // Still original
 
-    jest.advanceTimersByTime(300); // Complete second timeout
+    act(() => jest.advanceTimersByTime(300));
     expect(result.current).toBe('abc');
   });
 
@@ -59,10 +60,10 @@ describe('useDebounce', () => {
     );
 
     rerender({ value: 'test2', delay: 1000 });
-    jest.advanceTimersByTime(500);
+    act(() => jest.advanceTimersByTime(500));
     expect(result.current).toBe('test');
 
-    jest.advanceTimersByTime(500);
+    act(() => jest.advanceTimersByTime(500));
     expect(result.current).toBe('test2');
   });
 
@@ -76,7 +77,7 @@ describe('useDebounce', () => {
     unmount();
 
     // Advancing timers should not cause errors
-    jest.advanceTimersByTime(500);
+    act(() => jest.advanceTimersByTime(500));
   });
 
   test('should use default delay of 500ms', () => {
@@ -86,10 +87,10 @@ describe('useDebounce', () => {
     );
 
     rerender({ value: 'test2' });
-    jest.advanceTimersByTime(499);
+    act(() => jest.advanceTimersByTime(499));
     expect(result.current).toBe('test');
 
-    jest.advanceTimersByTime(1);
+    act(() => jest.advanceTimersByTime(1));
     expect(result.current).toBe('test2');
   });
 
@@ -101,17 +102,17 @@ describe('useDebounce', () => {
 
     // Simulate rapid typing: a, ab, abc, abcd
     rerender({ value: 'a' });
-    jest.advanceTimersByTime(100);
+    act(() => jest.advanceTimersByTime(100));
     rerender({ value: 'ab' });
-    jest.advanceTimersByTime(100);
+    act(() => jest.advanceTimersByTime(100));
     rerender({ value: 'abc' });
-    jest.advanceTimersByTime(100);
+    act(() => jest.advanceTimersByTime(100));
     rerender({ value: 'abcd' });
 
     expect(result.current).toBe('');
 
     // Only one timeout should be active
-    jest.advanceTimersByTime(500);
+    act(() => jest.advanceTimersByTime(500));
     expect(result.current).toBe('abcd');
   });
 });

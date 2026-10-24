@@ -1,7 +1,21 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { jest } from '@jest/globals';
+import { act, render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { SearchBar } from '../SearchBar.jsx';
 
 describe('SearchBar Component', () => {
+  test('should not repeat a query when the parent callback changes', async () => {
+    const onChange = jest.fn();
+    const replacement = jest.fn();
+    const { rerender } = render(<SearchBar onChange={onChange} />);
+
+    fireEvent.change(screen.getByPlaceholderText('Search tasks...'), { target: { value: 'test' } });
+    await waitFor(() => expect(onChange).toHaveBeenCalledWith('test'));
+    rerender(<SearchBar value="test" onChange={replacement} />);
+
+    expect(replacement).not.toHaveBeenCalled();
+    expect(onChange).toHaveBeenCalledTimes(1);
+  });
+
   test('should render input with placeholder', () => {
     render(<SearchBar placeholder="Search tasks..." />);
     const input = screen.getByPlaceholderText('Search tasks...');
@@ -94,7 +108,7 @@ describe('SearchBar Component', () => {
     expect(onChange).not.toHaveBeenCalled();
 
     // Advance timers by 500ms
-    jest.advanceTimersByTime(500);
+    act(() => jest.advanceTimersByTime(500));
 
     expect(onChange).toHaveBeenCalledWith('test');
 

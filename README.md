@@ -57,6 +57,23 @@ npm run dev
 npm run build
 ```
 
+### Run unit tests
+
+```bash
+npm test
+npm run test:coverage
+```
+
+Jest runs server tests in Node and React tests in jsdom. The ESM runner uses Node's
+experimental VM modules flag. Database tests initialize a separate in-memory SQLite
+database when `NODE_ENV=test`; they do not use `data/tasks.db`.
+The coverage command reports coverage; it does not waive the pipeline's changed-file
+coverage requirement.
+
+Search callbacks run only when the debounced query changes, not on initial render
+or when the parent supplies a new callback. Result ranges reflect the number of
+tasks displayed, including partial pages.
+
 ### Run the deployed app locally
 
 ```bash

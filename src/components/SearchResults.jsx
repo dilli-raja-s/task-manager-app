@@ -68,7 +68,7 @@ export function SearchResults({
       <div className="results-header">
         <p className="results-count" role="status">
           Showing {(pagination.page - 1) * pagination.limit + 1}–
-          {Math.min(pagination.page * pagination.limit, pagination.total)} of{' '}
+          {Math.min((pagination.page - 1) * pagination.limit + tasks.length, pagination.total)} of{' '}
           {pagination.total} tasks
         </p>
       </div>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useDebounce } from '../hooks/useDebounce.js';
 
 /**
@@ -15,9 +15,12 @@ export function SearchBar({
 }) {
   const [queryInput, setQueryInput] = useState(value);
   const debouncedQuery = useDebounce(queryInput, 500);
+  const lastNotifiedQuery = useRef(queryInput);
 
   // Notify parent when debounced query changes
   useEffect(() => {
+    if (lastNotifiedQuery.current === debouncedQuery) return;
+    lastNotifiedQuery.current = debouncedQuery;
     onChange(debouncedQuery);
   }, [debouncedQuery, onChange]);
 

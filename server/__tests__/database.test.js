@@ -1,11 +1,52 @@
-import { searchTasks } from '../database.js';
+import {
+  closeDatabase, createTask, deleteTask, getTasks, initializeDatabase, searchTasks, updateTask,
+} from '../database.js';
 
 describe('database.searchTasks', () => {
-  // Note: These are integration tests with mock or test database
-  // In a real environment, you'd use a test database or mocks
+  beforeAll(async () => {
+    await initializeDatabase();
+    await createTask({
+      title: 'test pending',
+      description: 'Seeded pending task',
+      status: 'pending',
+      dueDate: '2026-06-10',
+    });
+    await createTask({
+      title: 'completed item',
+      description: 'Seeded completed task',
+      status: 'completed',
+      dueDate: '2026-07-10',
+    });
+  });
+
+  afterAll(async () => {
+    await closeDatabase();
+  });
+
+  test('should support task lifecycle in the isolated database', async () => {
+    const task = await createTask({
+      title: 'Lifecycle task', description: 'Temporary task', status: 'pending', dueDate: '2026-08-01',
+    });
+    expect((await getTasks()).some((item) => item.id === task.id)).toBe(true);
+
+    const updated = await updateTask(task.id, { ...task, title: 'Updated task', status: 'completed' });
+    expect(updated).toMatchObject({ id: task.id, title: 'Updated task', status: 'completed' });
+    expect(await deleteTask(task.id)).toBe(true);
+    expect(await deleteTask(task.id)).toBe(false);
+    expect(await updateTask(task.id, task)).toBeNull();
+  });
+
+  test('should reject invalid statuses without persisting them', async () => {
+    const task = {
+      title: 'Invalid task', description: 'Invalid status', status: 'invalid', dueDate: '2026-08-01',
+    };
+    const before = await getTasks();
+    await expect(createTask(task)).rejects.toThrow();
+    await expect(updateTask(before[0].id, task)).rejects.toThrow();
+    expect(await getTasks()).toEqual(before);
+  });
 
   test('should return tasks with pagination metadata', async () => {
-    // This test assumes a test database with seed data
     const result = await searchTasks({});
 
     expect(result).toHaveProperty('data');
@@ -29,8 +70,7 @@ describe('database.searchTasks', () => {
 
     expect(result.data).toBeDefined();
     result.data.forEach((task) => {
-      // All returned tasks should have pending status
-      // (unless status is 'all', which returns all)
+      expect(task.status).toBe('pending');
     });
   });
 

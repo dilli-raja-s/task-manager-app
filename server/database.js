@@ -5,9 +5,23 @@ import { buildSearchQuery, buildCountQuery } from './searchQueryBuilder.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const databasePath = path.join(__dirname, '..', 'data', 'tasks.db');
+const databasePath = process.env.NODE_ENV === 'test'
+  ? ':memory:'
+  : path.join(__dirname, '..', 'data', 'tasks.db');
 
 const db = new sqlite3.Database(databasePath);
+
+export function closeDatabase() {
+  return new Promise((resolve, reject) => {
+    db.close((error) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+      resolve();
+    });
+  });
+}
 
 export function initializeDatabase() {
   return new Promise((resolve, reject) => {

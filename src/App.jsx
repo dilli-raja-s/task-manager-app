@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import SearchBar from './components/SearchBar.jsx';
 import SearchResults from './components/SearchResults.jsx';
+import SummaryCard from './components/SummaryCard.jsx';
+import { isOverdue } from './utils/overdue.js';
+import { getOverdueIcon } from './utils/svg-icons.jsx';
 
 const emptyForm = {
   title: '',
@@ -21,6 +24,17 @@ function formatDueDate(value) {
     day: 'numeric',
     year: 'numeric',
   }).format(new Date(value));
+}
+
+// Per-task overdue check for card markers. A failure leaves the card unmarked
+// instead of breaking the board render (F-1).
+function isTaskOverdue(task) {
+  try {
+    return isOverdue(task.dueDate, task.status);
+  } catch (error) {
+    console.warn(`Error checking overdue status for task ${task.id}:`, error);
+    return false;
+  }
 }
 
 export default function App() {
@@ -74,6 +88,15 @@ export default function App() {
       inProgress: tasks.filter((task) => task.status === 'in-progress').length,
       completed: tasks.filter((task) => task.status === 'completed').length,
     };
+  }, [tasks]);
+
+  const overdueSummary = useMemo(() => {
+    try {
+      return tasks.filter((task) => isOverdue(task.dueDate, task.status)).length;
+    } catch (error) {
+      console.warn('Error calculating overdue count:', error);
+      return 0;
+    }
   }, [tasks]);
 
   async function loadTasks() {
@@ -256,6 +279,12 @@ export default function App() {
             </p>
           </div>
           <div className="summary-grid">
+            <SummaryCard
+              label="Overdue"
+              value={overdueSummary}
+              tone="alert"
+              ariaLabel={`${overdueSummary} overdue tasks`}
+            />
             <SummaryCard label="All Tasks" value={summary.total} tone="sun" />
             <SummaryCard label="Pending" value={summary.pending} tone="sand" />
             <SummaryCard label="In Progress" value={summary.inProgress} tone="mint" />
@@ -357,12 +386,13 @@ export default function App() {
                 <p className="section-kicker">Task Board</p>
                 <h2>All tasks</h2>
               </div>
-              <div className="filter-group" role="tablist" aria-label="Task filters">
+              <div className="filter-group" role="group" aria-label="Task filters">
                 {['all', 'pending', 'in-progress', 'completed'].map((filter) => (
                   <button
                     key={filter}
                     className={filter === activeFilter ? 'filter-chip active' : 'filter-chip'}
                     type="button"
+                    aria-pressed={filter === activeFilter}
                     onClick={() => setActiveFilter(filter)}
                   >
                     {filter === 'all' ? 'All' : statusLabels[filter]}
@@ -381,41 +411,41 @@ export default function App() {
             ) : null}
 
             <div className="task-list">
-              {filteredTasks.map((task) => (
-                <article className="task-card" key={task.id}>
-                  <div className="task-card-top">
-                    <span className={`status-pill ${task.status}`}>{statusLabels[task.status]}</span>
-                    <span className="due-date">Due {formatDueDate(task.dueDate)}</span>
-                  </div>
+              {filteredTasks.map((task) => {
+                const overdue = isTaskOverdue(task);
+                return (
+                  <article className={overdue ? 'task-card overdue' : 'task-card'} key={task.id}>
+                    {overdue ? (
+                      <div className="overdue-indicator" role="img" aria-label="Overdue">
+                        {getOverdueIcon()}
+                      </div>
+                    ) : null}
 
-                  <div className="task-card-body">
-                    <h3>{task.title}</h3>
-                    <p>{task.description}</p>
-                  </div>
+                    <div className="task-card-top">
+                      <span className={`status-pill ${task.status}`}>{statusLabels[task.status]}</span>
+                      <span className="due-date">Due {formatDueDate(task.dueDate)}</span>
+                    </div>
 
-                  <div className="task-actions">
-                    <button className="ghost-button" type="button" onClick={() => startEditing(task)}>
-                      Edit
-                    </button>
-                    <button className="danger-button" type="button" onClick={() => handleDelete(task.id)}>
-                      Delete
-                    </button>
-                  </div>
-                </article>
-              ))}
+                    <div className="task-card-body">
+                      <h3>{task.title}</h3>
+                      <p>{task.description}</p>
+                    </div>
+
+                    <div className="task-actions">
+                      <button className="ghost-button" type="button" onClick={() => startEditing(task)}>
+                        Edit
+                      </button>
+                      <button className="danger-button" type="button" onClick={() => handleDelete(task.id)}>
+                        Delete
+                      </button>
+                    </div>
+                  </article>
+                );
+              })}
             </div>
           </article>
         </section>
       </main>
-    </div>
-  );
-}
-
-function SummaryCard({ label, value, tone }) {
-  return (
-    <div className={`summary-card ${tone}`}>
-      <span>{label}</span>
-      <strong>{value}</strong>
     </div>
   );
 }

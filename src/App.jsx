@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import SearchBar from './components/SearchBar.jsx';
 import SearchResults from './components/SearchResults.jsx';
+import SummaryCard from './components/SummaryCard.jsx';
+import { isOverdue } from './utils/overdue.js';
 
 const emptyForm = {
   title: '',
@@ -74,6 +76,15 @@ export default function App() {
       inProgress: tasks.filter((task) => task.status === 'in-progress').length,
       completed: tasks.filter((task) => task.status === 'completed').length,
     };
+  }, [tasks]);
+
+  const overdueSummary = useMemo(() => {
+    try {
+      return tasks.filter((task) => isOverdue(task.dueDate, task.status)).length;
+    } catch (error) {
+      console.warn('Error calculating overdue count:', error);
+      return 0;
+    }
   }, [tasks]);
 
   async function loadTasks() {
@@ -256,6 +267,12 @@ export default function App() {
             </p>
           </div>
           <div className="summary-grid">
+            <SummaryCard
+              label="Overdue"
+              value={overdueSummary}
+              tone="alert"
+              ariaLabel={`${overdueSummary} overdue tasks`}
+            />
             <SummaryCard label="All Tasks" value={summary.total} tone="sun" />
             <SummaryCard label="Pending" value={summary.pending} tone="sand" />
             <SummaryCard label="In Progress" value={summary.inProgress} tone="mint" />
@@ -407,15 +424,6 @@ export default function App() {
           </article>
         </section>
       </main>
-    </div>
-  );
-}
-
-function SummaryCard({ label, value, tone }) {
-  return (
-    <div className={`summary-card ${tone}`}>
-      <span>{label}</span>
-      <strong>{value}</strong>
     </div>
   );
 }

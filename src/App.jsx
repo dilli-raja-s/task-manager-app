@@ -386,12 +386,13 @@ export default function App() {
                 <p className="section-kicker">Task Board</p>
                 <h2>All tasks</h2>
               </div>
-              <div className="filter-group" role="tablist" aria-label="Task filters">
+              <div className="filter-group" role="group" aria-label="Task filters">
                 {['all', 'pending', 'in-progress', 'completed'].map((filter) => (
                   <button
                     key={filter}
                     className={filter === activeFilter ? 'filter-chip active' : 'filter-chip'}
                     type="button"
+                    aria-pressed={filter === activeFilter}
                     onClick={() => setActiveFilter(filter)}
                   >
                     {filter === 'all' ? 'All' : statusLabels[filter]}

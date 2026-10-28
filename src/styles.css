@@ -181,6 +181,11 @@ h3 {
   color: #f5efe5;
 }
 
+.summary-card.alert {
+  background: #d32f2f;
+  color: #fff;
+}
+
 .content-grid {
   display: grid;
   grid-template-columns: 0.95fr 1.25fr;
@@ -336,9 +341,39 @@ textarea {
 }
 
 .task-card {
+  position: relative;
   padding: 1.25rem;
   border-radius: 24px;
   background: rgba(255, 255, 255, 0.88);
+}
+
+.task-result-card {
+  position: relative;
+}
+
+/* Overdue markers: red border plus corner icon, shared by the Task Board and search results. */
+.task-card.overdue,
+.task-result-card.overdue {
+  border: 2px solid #d32f2f;
+}
+
+.overdue-indicator {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background-color: #d32f2f;
+  color: #fff;
+}
+
+.overdue-indicator svg {
+  width: 12px;
+  height: 12px;
 }
 
 .task-card-body {

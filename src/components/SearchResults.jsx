@@ -2,6 +2,20 @@
  * SearchResults Component
  * Displays paginated search results with loading, error, and empty states
  */
+import { isOverdue } from '../utils/overdue.js';
+import { getOverdueIcon } from '../utils/svg-icons.jsx';
+
+// Per-task overdue check for card markers. A failure leaves the card unmarked
+// instead of breaking the results render (F-1).
+function isTaskOverdue(task) {
+  try {
+    return isOverdue(task.dueDate, task.status);
+  } catch (error) {
+    console.warn(`Error checking overdue status for task ${task.id}:`, error);
+    return false;
+  }
+}
+
 export function SearchResults({
   tasks = [],
   loading = false,
@@ -74,9 +88,16 @@ export function SearchResults({
       </div>
 
       <ul className="results-list" role="list">
-        {tasks.map((task) => (
+        {tasks.map((task) => {
+          const overdue = isTaskOverdue(task);
+          return (
           <li key={task.id} className="result-item" role="listitem">
-            <article className="task-result-card">
+            <article className={overdue ? 'task-result-card overdue' : 'task-result-card'}>
+              {overdue ? (
+                <div className="overdue-indicator" role="img" aria-label="Overdue">
+                  {getOverdueIcon()}
+                </div>
+              ) : null}
               <div className="result-header">
                 <h4 className="result-title">{task.title}</h4>
                 <span className={`status-badge ${task.status}`}>
@@ -100,7 +121,8 @@ export function SearchResults({
               </button>
             </article>
           </li>
-        ))}
+          );
+        })}
       </ul>
 
       {pagination.pages > 1 && (
